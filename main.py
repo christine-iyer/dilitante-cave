@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List
@@ -6,28 +6,25 @@ import pymongo
 import os
 from dotenv import load_dotenv
 
-# Load environment variables from .env file
+# Load environment variables
 load_dotenv()
 
 app = FastAPI()
 
-# CORS Middleware
+# CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],  # ✅ Change "*" to frontend URL
+    allow_origins=["http://localhost:5173"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Get MongoDB URI from .env
+# MongoDB connection
 MONGO_URI = os.getenv("MONGO_URI")
-
-# Debug: Check if MONGO_URI is loaded
 if not MONGO_URI:
-    raise ValueError("❌ MONGO_URI is missing! Check your .env file.")
+    raise ValueError("❌ MONGO_URI is missing!")
 
-# Connect to MongoDB
 client = pymongo.MongoClient(MONGO_URI, tlsAllowInvalidCertificates=True)
 db = client["codebar"]
 workshops_collection = db["workshops"]
@@ -47,23 +44,33 @@ class Instructor(BaseModel):
 class Workshop(BaseModel):
     date: str
     subject: str
-    students: List[Student] = []
-    instructors: List[Instructor] = []
+    students: List[str] = []
+    instructors: List[str] = []
 
-# API Endpoints
+# Routes
 @app.post("/workshops/")
 async def create_workshop(workshop: Workshop):
     workshops_collection.insert_one(workshop.dict())
-    return {"message": "Workshop created successfully!"}
+    return {"message": "Workshop created"}
 
 @app.get("/workshops/")
 async def get_workshops():
     return list(workshops_collection.find({}, {"_id": 0}))
 
+@app.put("/workshops/{subject}")
+async def update_workshop(subject: str, updated_workshop: Workshop):
+    result = workshops_collection.update_one(
+        {"subject": subject},
+        {"$set": updated_workshop.dict()}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Workshop not found")
+    return {"message": "Workshop updated"}
+
 @app.post("/students/")
 async def create_student(student: Student):
     students_collection.insert_one(student.dict())
-    return {"message": "Student created successfully!"}
+    return {"message": "Student created"}
 
 @app.get("/students/")
 async def get_students():
@@ -72,11 +79,8 @@ async def get_students():
 @app.post("/instructors/")
 async def create_instructor(instructor: Instructor):
     instructors_collection.insert_one(instructor.dict())
-    return {"message": "Instructor created successfully!"}
+    return {"message": "Instructor created"}
 
 @app.get("/instructors/")
 async def get_instructors():
     return list(instructors_collection.find({}, {"_id": 0}))
-
-# need to assign students and instructors to workshops. And then allow editing for reassigning. 
-
