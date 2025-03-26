@@ -8,10 +8,8 @@ from dotenv import load_dotenv
 
 # Load environment variables
 load_dotenv()
-
 app = FastAPI()
 
-# CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173"],
@@ -20,7 +18,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# MongoDB connection
 MONGO_URI = os.getenv("MONGO_URI")
 if not MONGO_URI:
     raise ValueError("❌ MONGO_URI is missing!")
@@ -31,7 +28,6 @@ workshops_collection = db["workshops"]
 students_collection = db["students"]
 instructors_collection = db["instructors"]
 
-# Models
 class Student(BaseModel):
     full_name: str
     reason: str
@@ -47,9 +43,48 @@ class Workshop(BaseModel):
     students: List[str] = []
     instructors: List[str] = []
 
-# Routes
+@app.post("/students/")
+async def create_student(student: Student):
+    students_collection.insert_one(student.dict())
+    return {"message": "Student created"}
+
+@app.get("/students/")
+async def get_students():
+    return list(students_collection.find({}, {"_id": 0}))
+
+@app.put("/students/{full_name}")
+async def update_student(full_name: str, student: Student):
+    result = students_collection.update_one(
+        {"full_name": full_name},
+        {"$set": student.dict()}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Student not found")
+    return {"message": "Student updated"}
+
+@app.post("/instructors/")
+async def create_instructor(instructor: Instructor):
+    instructors_collection.insert_one(instructor.dict())
+    return {"message": "Instructor created"}
+
+@app.get("/instructors/")
+async def get_instructors():
+    return list(instructors_collection.find({}, {"_id": 0}))
+
+@app.put("/instructors/{full_name}")
+async def update_instructor(full_name: str, instructor: Instructor):
+    result = instructors_collection.update_one(
+        {"full_name": full_name},
+        {"$set": instructor.dict()}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Instructor not found")
+    return {"message": "Instructor updated"}
+
 @app.post("/workshops/")
 async def create_workshop(workshop: Workshop):
+    if workshops_collection.find_one({"subject": workshop.subject}):
+        raise HTTPException(status_code=400, detail="Workshop already exists")
     workshops_collection.insert_one(workshop.dict())
     return {"message": "Workshop created"}
 
@@ -66,21 +101,3 @@ async def update_workshop(subject: str, updated_workshop: Workshop):
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Workshop not found")
     return {"message": "Workshop updated"}
-
-@app.post("/students/")
-async def create_student(student: Student):
-    students_collection.insert_one(student.dict())
-    return {"message": "Student created"}
-
-@app.get("/students/")
-async def get_students():
-    return list(students_collection.find({}, {"_id": 0}))
-
-@app.post("/instructors/")
-async def create_instructor(instructor: Instructor):
-    instructors_collection.insert_one(instructor.dict())
-    return {"message": "Instructor created"}
-
-@app.get("/instructors/")
-async def get_instructors():
-    return list(instructors_collection.find({}, {"_id": 0}))
