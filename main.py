@@ -79,7 +79,7 @@ async def update_instructor(full_name: str, instructor: Instructor):
     )
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Instructor not found")
-    return {"message": "Instructor updated"}
+    return {"message": "Instructor information updated"}
 
 @app.post("/workshops/")
 async def create_workshop(workshop: Workshop):
