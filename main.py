@@ -1,7 +1,6 @@
 from fastapi import FastAPI
 from routes.students import router as students_router
 from routes.instructors import router as instructors_router
-import routes.workshops
 from routes.workshops import router as workshops_router
 app = FastAPI()
 
