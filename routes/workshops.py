@@ -1,0 +1,114 @@
+from fastapi import APIRouter, HTTPException, Depends
+from sqlalchemy.orm import Session
+from models.workshops import Workshop
+from schemas.workshops import WorkshopCreate, WorkshopResponse, WorkshopUpdate
+from models.database import get_db
+from typing import List
+import logging
+import json
+
+# Initialize the router
+router = APIRouter()
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+
+# POST endpoint to create a new workshop
+@router.post("/workshops/")
+async def create_workshop(workshop: WorkshopCreate, db: Session = Depends(get_db)):
+    logging.info(f"Received workshop data: {workshop}")
+    
+    # Check if the workshop already exists
+    db_workshop = db.query(Workshop).filter(Workshop.subject == workshop.subject).first()
+    if db_workshop:
+        raise HTTPException(status_code=400, detail="Workshop already exists")
+    
+    # Create a new workshop record
+    new_workshop = Workshop(
+        subject=workshop.subject,
+        description=json.dumps(workshop.description),  # Convert list to JSON string
+        instructors=workshop.instructors,
+        students=workshop.students,
+        date=workshop.date,
+    )
+    db.add(new_workshop)
+    db.commit()
+    db.refresh(new_workshop)
+    
+    return {"message": "Workshop created", "workshop": {"subject": new_workshop.subject, "description": json.loads(new_workshop.description)}}
+
+# GET endpoint to retrieve all workshops
+@router.get("/workshops/", response_model=List[WorkshopResponse])
+async def get_workshops(db: Session = Depends(get_db)):
+    # Query all workshops from the database
+    workshops = db.query(Workshop).all()
+    
+    # Deserialize the `description` field for each workshop
+    for workshop in workshops:
+        if isinstance(workshop.description, str):  # If description is a string
+            try:
+                workshop.description = json.loads(workshop.description)  # Try to parse as JSON
+            except json.JSONDecodeError:
+                workshop.description = workshop.description.split(", ")  # Fallback: split by comma
+        elif workshop.description is None:
+            workshop.description = []  # Default to an empty list if description is None
+    
+    # Return the list of workshops
+    return workshops
+
+# GET endpoint to retrieve and modify a workshop by ID
+@router.get("/workshops/{workshop_id}", response_model=WorkshopResponse)
+async def get_workshop(workshop_id: int, db: Session = Depends(get_db)):
+    # Query the workshop by ID
+    workshop = db.query(Workshop).filter(Workshop.id == workshop_id).first()
+    
+    # If the workshop does not exist, raise a 404 error
+    if not workshop:
+        raise HTTPException(status_code=404, detail="Workshop not found")
+    
+    # Deserialize the `description` field
+    if isinstance(workshop.description, str):  # If description is a string
+        try:
+            workshop.description = json.loads(workshop.description)  # Try to parse as JSON
+        except json.JSONDecodeError:
+            workshop.description = workshop.description.split(", ")  # Fallback: split by comma
+    elif workshop.description is None:
+        workshop.description = []  # Default to an empty list if description is None
+    
+    return workshop
+# PUT endpoint to update a workshop by ID
+@router.put("/workshops/{workshop_id}")
+async def update_workshop(workshop_id: int, updated_data: WorkshopUpdate, db: Session = Depends(get_db)):
+    # Query the workshop by ID
+    workshop = db.query(Workshop).filter(Workshop.id == workshop_id).first()
+    
+    # If the workshop does not exist, raise a 404 error
+    if not workshop:
+        raise HTTPException(status_code=404, detail="Workshop not found")
+    
+    # Update the fields provided in the request body
+    for key, value in updated_data.items():
+        if hasattr(workshop, key):  # Check if the field exists in the model
+            setattr(workshop, key, value)
+    
+    # Commit the changes to the database
+    db.commit()
+    db.refresh(workshop)
+    
+    return {"message": "Workshop updated successfully", "workshop": workshop}
+# DELETE endpoint to delete a workshop by ID
+@router.delete("/workshops/{workshop_id}")    
+async def delete_workshop(workshop_id: int, db: Session = Depends(get_db)):
+    # Query the workshop by ID
+    db_workshop = db.query(Workshop).filter(Workshop.id == workshop_id).first()
+    
+    # If the workshop does not exist, raise a 404 error
+    if not db_workshop:
+        raise HTTPException(status_code=404, detail="Workshop not found")
+    
+    # Delete the workshop from the database
+    db.delete(db_workshop)
+    db.commit()
+    
+    return {"message": "Workshop deleted"}
+# Note: The above code assumes that the database connection and models are set up correctly.
