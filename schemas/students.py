@@ -10,7 +10,12 @@ class StudentResponse(BaseModel):
     id: int
     name: str
     reasons: Optional[List[str]]  # JSON array
-    picture: Optional[str]    
+    picture: Optional[str]  
+
+class StudentUpdate(BaseModel):
+    name: Optional[str]
+    reasons: Optional[list]
+    picture: Optional[str]      
 
     class Config:
         from_attributes = True

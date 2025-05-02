@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from models.create_students import router as students_router
+from routes.students import router as students_router
 
 app = FastAPI()
 

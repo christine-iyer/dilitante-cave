@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
 from models.students import Student
-from models.schemas import StudentCreate, StudentResponse
+from schemas.students import StudentCreate, StudentResponse, StudentUpdate
 from models.database import get_db
 from typing import List
 import logging
@@ -76,7 +76,7 @@ async def get_student(student_id: int, db: Session = Depends(get_db)):
     return student
 # PUT endpoint to update a student by ID
 @router.put("/students/{student_id}")
-async def update_student(student_id: int, updated_data: dict, db: Session = Depends(get_db)):
+async def update_student(student_id: int, updated_data: StudentUpdate, db: Session = Depends(get_db)):
     # Query the student by ID
     student = db.query(Student).filter(Student.id == student_id).first()
     
