@@ -8,8 +8,5 @@ class Student(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(100), nullable=False)
-    city = Column(String(100), nullable=False)
-    state = Column(String(100), nullable=False)
-    available = Column(Boolean, default=True)
-    credentials = Column(String(255), nullable=True)  # Comma-separated
-    services = Column(String(255), nullable=True)  # Comma-separated
+    reasons = Column(String(255), nullable=True)  # Comma-separated
+    picture = Column(String(255), nullable=True)  # Comma-separated
