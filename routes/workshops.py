@@ -18,14 +18,18 @@ logging.basicConfig(level=logging.INFO)
 async def create_workshop(workshop: WorkshopCreate, db: Session = Depends(get_db)):
     new_workshop = Workshop(
         subject=workshop.subject,
-        date=workshop.date,
-        instructors=",".join(workshop.instructors) if workshop.instructors else None,
-        students=",".join(workshop.students) if workshop.students else None,
+        date=workshop.date,  # Store the formatted date as a string
+        instructors=json.dumps(workshop.instructors),  # Serialize list to JSON string
+        students=json.dumps(workshop.students),  # Serialize list to JSON string
         description=workshop.description,
     )
     db.add(new_workshop)
     db.commit()
     db.refresh(new_workshop)
+    # Deserialize JSON strings back to Python lists for the response
+    new_workshop.instructors = json.loads(new_workshop.instructors)
+    new_workshop.students = json.loads(new_workshop.students)
+
     return new_workshop
 
 # GET endpoint to retrieve all workshops
@@ -33,9 +37,17 @@ async def create_workshop(workshop: WorkshopCreate, db: Session = Depends(get_db
 async def get_workshops(db: Session = Depends(get_db)):
     workshops = db.query(Workshop).all()
     for workshop in workshops:
-        # Convert comma-separated strings back to lists
-        workshop.instructors = workshop.instructors.split(",") if workshop.instructors else []
-        workshop.students = workshop.students.split(",") if workshop.students else []
+        # Safely deserialize JSON strings back to Python lists
+        try:
+            workshop.instructors = json.loads(workshop.instructors) if workshop.instructors else []
+        except json.JSONDecodeError:
+            workshop.instructors = []  # Default to an empty list if deserialization fails
+
+        try:
+            workshop.students = json.loads(workshop.students) if workshop.students else []
+        except json.JSONDecodeError:
+            workshop.students = []  # Default to an empty list if deserialization fails
+
     return workshops
 
 # GET endpoint to retrieve and modify a workshop by ID
@@ -56,10 +68,9 @@ async def get_workshop(workshop_id: int, db: Session = Depends(get_db)):
             workshop.description = workshop.description.split(", ")  # Fallback: split by comma
     elif workshop.description is None:
         workshop.description = []  # Default to an empty list if description is None
-    
     return workshop
 # PUT endpoint to update a workshop by ID
-@router.put("/workshops/{workshop_id}")
+@router.put("/workshops/{workshop_id}", response_model=WorkshopResponse)
 async def update_workshop(workshop_id: int, updated_data: WorkshopUpdate, db: Session = Depends(get_db)):
     # Query the workshop by ID
     workshop = db.query(Workshop).filter(Workshop.id == workshop_id).first()
@@ -69,15 +80,15 @@ async def update_workshop(workshop_id: int, updated_data: WorkshopUpdate, db: Se
         raise HTTPException(status_code=404, detail="Workshop not found")
     
     # Update the fields provided in the request body
-    for key, value in updated_data.items():
-        if hasattr(workshop, key):  # Check if the field exists in the model
-            setattr(workshop, key, value)
+    update_data = updated_data.dict(exclude_unset=True)  # Only include fields that are set
+    for key, value in update_data.items():
+        setattr(workshop, key, value)
     
     # Commit the changes to the database
     db.commit()
     db.refresh(workshop)
     
-    return {"message": "Workshop updated successfully", "workshop": workshop}
+    return workshop
 # DELETE endpoint to delete a workshop by ID
 @router.delete("/workshops/{workshop_id}")    
 async def delete_workshop(workshop_id: int, db: Session = Depends(get_db)):

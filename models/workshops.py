@@ -1,6 +1,5 @@
-from sqlalchemy import Column, String, Integer
+from sqlalchemy import Column, String, Integer, Text
 from sqlalchemy.ext.declarative import declarative_base
-from datetime import datetime
 
 Base = declarative_base()
 
@@ -9,10 +8,10 @@ class Workshop(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     subject = Column(String(100), nullable=False)
-    date = Column(String(100), nullable=False)  # Use DateTime for proper date handling
-    instructors = Column(String(255), nullable=True)  # Comma-separated
-    students = Column(String(255), nullable=True)  # Comma-separated
+    date = Column(String(100), nullable=False) 
+    instructors = Column(Text, nullable=True)  # Use Text to store JSON strings
+    students = Column(Text, nullable=True) 
     description = Column(String(255), nullable=True)
 
-    def __repr__(self):
-        return f"<Workshop(id={self.id}, subject={self.subject}, date={self.date})>"
+    # def __repr__(self):
+    #     return f"<Workshop(id={self.id}, subject={self.subject}, date={self.date})>"
