@@ -22,9 +22,10 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
 # Import your models here
-from models.instructors import Instructor  # Import the Instructors model
+from models.instructors import Instructor
+from models.workshops import Workshop
+from models.students import Student
 
-# Create all tables
 Base.metadata.create_all(bind=engine)
 
 # Dependency to get the database session
