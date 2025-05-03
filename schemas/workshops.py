@@ -1,12 +1,22 @@
 from pydantic import BaseModel
+from datetime import datetime
 from typing import List, Optional
 
-class WorkshopCreate(BaseModel):
-    date: str   
+class WorkshopBase(BaseModel):
     subject: str
-    instrctors: List[str]  # Expecting a list of strings
-    students: List[str]  # Expecting a list of strings
-    description: str
+    date: datetime
+    instructors: Optional[List[str]] = None  # Correctly named "instructors"
+    students: Optional[List[str]] = None
+    description: Optional[str] = None
+
+class WorkshopCreate(WorkshopBase):
+    pass
+
+class WorkshopResponse(WorkshopBase):
+    id: int
+
+    class Config:
+        from_attributes = True  # For Pydantic v2
    
 class WorkshopResponse(BaseModel):
     id: int

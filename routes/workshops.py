@@ -14,28 +14,19 @@ router = APIRouter()
 logging.basicConfig(level=logging.INFO)
 
 # POST endpoint to create a new workshop
-@router.post("/workshops/")
+@router.post("/workshops/", response_model=WorkshopResponse)
 async def create_workshop(workshop: WorkshopCreate, db: Session = Depends(get_db)):
-    logging.info(f"Received workshop data: {workshop}")
-    
-    # Check if the workshop already exists
-    db_workshop = db.query(Workshop).filter(Workshop.subject == workshop.subject).first()
-    if db_workshop:
-        raise HTTPException(status_code=400, detail="Workshop already exists")
-    
-    # Create a new workshop record
     new_workshop = Workshop(
         subject=workshop.subject,
-        description=json.dumps(workshop.description),  # Convert list to JSON string
-        instructors=workshop.instructors,
-        students=workshop.students,
         date=workshop.date,
+        instructors=",".join(workshop.instructors) if workshop.instructors else None,
+        students=",".join(workshop.students) if workshop.students else None,
+        description=workshop.description,
     )
     db.add(new_workshop)
     db.commit()
     db.refresh(new_workshop)
-    
-    return {"message": "Workshop created", "workshop": {"subject": new_workshop.subject, "description": json.loads(new_workshop.description)}}
+    return new_workshop
 
 # GET endpoint to retrieve all workshops
 @router.get("/workshops/", response_model=List[WorkshopResponse])
