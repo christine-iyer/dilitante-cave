@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Integer, DateTime
+from sqlalchemy import Column, String, Integer
 from sqlalchemy.ext.declarative import declarative_base
 from datetime import datetime
 
@@ -9,7 +9,7 @@ class Workshop(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     subject = Column(String(100), nullable=False)
-    date = Column(DateTime, nullable=False)  # Use DateTime for proper date handling
+    date = Column(String(100), nullable=False)  # Use DateTime for proper date handling
     instructors = Column(String(255), nullable=True)  # Comma-separated
     students = Column(String(255), nullable=True)  # Comma-separated
     description = Column(String(255), nullable=True)

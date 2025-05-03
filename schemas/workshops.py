@@ -1,10 +1,9 @@
 from pydantic import BaseModel
-from datetime import datetime
 from typing import List, Optional
 
 class WorkshopBase(BaseModel):
     subject: str
-    date: datetime
+    date: str
     instructors: Optional[List[str]] = None  # Correctly named "instructors"
     students: Optional[List[str]] = None
     description: Optional[str] = None
@@ -16,7 +15,7 @@ class WorkshopResponse(WorkshopBase):
     id: int
 
     class Config:
-        from_attributes = True  # For Pydantic v2
+        orm_mode = True  # For Pydantic v2
    
 class WorkshopResponse(BaseModel):
     id: int

@@ -31,20 +31,11 @@ async def create_workshop(workshop: WorkshopCreate, db: Session = Depends(get_db
 # GET endpoint to retrieve all workshops
 @router.get("/workshops/", response_model=List[WorkshopResponse])
 async def get_workshops(db: Session = Depends(get_db)):
-    # Query all workshops from the database
     workshops = db.query(Workshop).all()
-    
-    # Deserialize the `description` field for each workshop
     for workshop in workshops:
-        if isinstance(workshop.description, str):  # If description is a string
-            try:
-                workshop.description = json.loads(workshop.description)  # Try to parse as JSON
-            except json.JSONDecodeError:
-                workshop.description = workshop.description.split(", ")  # Fallback: split by comma
-        elif workshop.description is None:
-            workshop.description = []  # Default to an empty list if description is None
-    
-    # Return the list of workshops
+        # Convert comma-separated strings back to lists
+        workshop.instructors = workshop.instructors.split(",") if workshop.instructors else []
+        workshop.students = workshop.students.split(",") if workshop.students else []
     return workshops
 
 # GET endpoint to retrieve and modify a workshop by ID
