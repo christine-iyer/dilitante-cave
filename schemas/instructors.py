@@ -1,23 +1,23 @@
 from pydantic import BaseModel
 from typing import List, Optional
 
-class InstructorCreate(BaseModel):
-    name: str   
-    bio: List[str]  # Expecting a list of strings
-    skills: Optional[List[str]] = None  # Expecting a list of strings
-    
-class InstructorResponse(BaseModel):
-    id: int
+class InstructorBase(BaseModel):
     name: str
-    bio: Optional[List[str]]  # JSON array
-    skills: Optional[List[str]]  # JSON array
+    skills: Optional[List[str]] = None  # JSON list
+    bio: Optional[str] = None
     
 
-class InstructorUpdate(BaseModel):
-    name: Optional[str]
-    bio: Optional[str]
-    skills: Optional[list]
-   
+class InstructorCreate(InstructorBase):
+    pass
+
+class InstructorResponse(InstructorBase):
+    id: int
 
     class Config:
-        from_attributes = True
+        from_attributes = True  # For SQLAlchemy model compatibility
+
+# Add this class for updates
+class InstructorUpdate(BaseModel):
+    name: str
+    skills: Optional[List[str]] = None  # JSON list
+    bio: Optional[str] = None

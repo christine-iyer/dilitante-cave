@@ -1,11 +1,12 @@
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
-from models.instructors import Instructor
+
 from schemas.instructors import InstructorCreate, InstructorResponse, InstructorUpdate
 from models.database import get_db
 from typing import List
 import logging
 import json
+from models.instructors import Instructor
 
 # Initialize the router
 router = APIRouter()
@@ -14,44 +15,32 @@ router = APIRouter()
 logging.basicConfig(level=logging.INFO)
 
 # POST endpoint to create a new instructor
-@router.post("/instructors/")
+@router.post("/instructors/", response_model=InstructorResponse)
 async def create_instructor(instructor: InstructorCreate, db: Session = Depends(get_db)):
-    logging.info(f"Received instructor data: {instructor}")
-    
-    # Check if the instructor already exists
-    db_instructor = db.query(Instructor).filter(Instructor.name == instructor.name).first()
-    if db_instructor:
-        raise HTTPException(status_code=400, detail="Instructor already exists")
-    
-    # Create a new instructor record
     new_instructor = Instructor(
         name=instructor.name,
-        skills=json.dumps(instructor.skills),  # Convert list to JSON string
+        skills=json.dumps(instructor.skills),  # Serialize list to JSON string
         bio=instructor.bio,
     )
     db.add(new_instructor)
     db.commit()
     db.refresh(new_instructor)
-    
-    return {"message": "Instructor created", "instructor": {"name": new_instructor.name, "skills": json.loads(new_instructor.skills)}}
+    # Deserialize JSON strings back to Python lists for the response
+    new_instructor.skills = json.loads(new_instructor.skills)
+
+    return new_instructor
 
 # GET endpoint to retrieve all instructors
 @router.get("/instructors/", response_model=List[InstructorResponse])
 async def get_instructors(db: Session = Depends(get_db)):
-    # Query all instructors from the database
     instructors = db.query(Instructor).all()
-    
-    # Deserialize the `skills` field for each instructor
     for instructor in instructors:
-        if isinstance(instructor.skills, str):  # If skills is a string
-            try:
-                instructor.skills = json.loads(instructor.skills)  # Try to parse as JSON
-            except json.JSONDecodeError:
-                instructor.skills = instructor.skills.split(", ")  # Fallback: split by comma
-        elif instructor.skills is None:
-            instructor.skills = []  # Default to an empty list if skills is None
-    
-    # Return the list of instructors
+        # Safely deserialize JSON strings back to Python lists
+        try:
+            instructor.skills = json.loads(instructor.skills) if instructor.skills else []
+        except json.JSONDecodeError:
+            instructor.skills = []  # Default to an empty list if deserialization fails
+
     return instructors
 
 # GET endpoint to retrieve and modify a instructor by ID
@@ -64,18 +53,17 @@ async def get_instructor(instructor_id: int, db: Session = Depends(get_db)):
     if not instructor:
         raise HTTPException(status_code=404, detail="Instructor not found")
     
-    # Deserialize the `skills` field
-    if isinstance(instructor.skills, str):  # If skills is a string
+    # Deserialize the `bio` field
+    if isinstance(instructor.bio, str):  # If bio is a string
         try:
-            instructor.skills = json.loads(instructor.skills)  # Try to parse as JSON
+            instructor.bio = json.loads(instructor.bio)  # Try to parse as JSON
         except json.JSONDecodeError:
-            instructor.skills = instructor.skills.split(", ")  # Fallback: split by comma
-    elif instructor.skills is None:
-        instructor.skills = []  # Default to an empty list if skills is None
-    
+            instructor.bio = instructor.bio.split(", ")  # Fallback: split by comma
+    elif instructor.bio is None:
+        instructor.bio = []  # Default to an empty list if bio is None
     return instructor
 # PUT endpoint to update a instructor by ID
-@router.put("/instructors/{instructor_id}")
+@router.put("/instructors/{instructor_id}", response_model=InstructorResponse)
 async def update_instructor(instructor_id: int, updated_data: InstructorUpdate, db: Session = Depends(get_db)):
     # Query the instructor by ID
     instructor = db.query(Instructor).filter(Instructor.id == instructor_id).first()
@@ -85,15 +73,15 @@ async def update_instructor(instructor_id: int, updated_data: InstructorUpdate, 
         raise HTTPException(status_code=404, detail="Instructor not found")
     
     # Update the fields provided in the request body
-    for key, value in updated_data.items():
-        if hasattr(instructor, key):  # Check if the field exists in the model
-            setattr(instructor, key, value)
+    update_data = updated_data.dict(exclude_unset=True)  # Only include fields that are set
+    for key, value in update_data.items():
+        setattr(instructor, key, value)
     
     # Commit the changes to the database
     db.commit()
     db.refresh(instructor)
     
-    return {"message": "Instructor updated successfully", "instructor": instructor}
+    return instructor
 # DELETE endpoint to delete a instructor by ID
 @router.delete("/instructors/{instructor_id}")    
 async def delete_instructor(instructor_id: int, db: Session = Depends(get_db)):
