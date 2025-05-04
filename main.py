@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from routes.students import router as students_router
 from routes.instructors import router as instructors_router
 from routes.workshops import router as workshops_router
