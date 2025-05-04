@@ -18,6 +18,6 @@ class InstructorResponse(InstructorBase):
 
 # Add this class for updates
 class InstructorUpdate(BaseModel):
-    name: str
+    name: Optional[str] = None
     skills: Optional[List[str]] = None  # JSON list
     bio: Optional[str] = None

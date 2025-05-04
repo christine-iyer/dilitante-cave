@@ -37,38 +37,44 @@ async def create_workshop(workshop: WorkshopCreate, db: Session = Depends(get_db
 async def get_workshops(db: Session = Depends(get_db)):
     workshops = db.query(Workshop).all()
     for workshop in workshops:
-        # Safely deserialize JSON strings back to Python lists
-        try:
-            workshop.instructors = json.loads(workshop.instructors) if workshop.instructors else []
-        except json.JSONDecodeError:
-            workshop.instructors = []  # Default to an empty list if deserialization fails
+        # Deserialize JSON strings back to Python lists
+        if isinstance(workshop.instructors, str):  # If instructors is a JSON string
+            try:
+                workshop.instructors = json.loads(workshop.instructors)
+            except json.JSONDecodeError:
+                workshop.instructors = []  # Default to an empty list if deserialization fails
 
-        try:
-            workshop.students = json.loads(workshop.students) if workshop.students else []
-        except json.JSONDecodeError:
-            workshop.students = []  # Default to an empty list if deserialization fails
+        if isinstance(workshop.students, str):  # If students is a JSON string
+            try:
+                workshop.students = json.loads(workshop.students)
+            except json.JSONDecodeError:
+                workshop.students = []  # Default to an empty list if deserialization fails
 
     return workshops
 
-# GET endpoint to retrieve and modify a workshop by ID
+# GET endpoint to retrieve a single workshop by ID
 @router.get("/workshops/{workshop_id}", response_model=WorkshopResponse)
 async def get_workshop(workshop_id: int, db: Session = Depends(get_db)):
-    # Query the workshop by ID
     workshop = db.query(Workshop).filter(Workshop.id == workshop_id).first()
-    
-    # If the workshop does not exist, raise a 404 error
     if not workshop:
         raise HTTPException(status_code=404, detail="Workshop not found")
-    
-    # Deserialize the `description` field
-    if isinstance(workshop.description, str):  # If description is a string
+
+    # Deserialize JSON strings back to Python lists
+    if isinstance(workshop.instructors, str):  # If instructors is a JSON string
         try:
-            workshop.description = json.loads(workshop.description)  # Try to parse as JSON
+            workshop.instructors = json.loads(workshop.instructors)
         except json.JSONDecodeError:
-            workshop.description = workshop.description.split(", ")  # Fallback: split by comma
-    elif workshop.description is None:
-        workshop.description = []  # Default to an empty list if description is None
+            workshop.instructors = []  # Default to an empty list if deserialization fails
+
+    if isinstance(workshop.students, str):  # If students is a JSON string
+        try:
+            workshop.students = json.loads(workshop.students)
+        except json.JSONDecodeError:
+            workshop.students = []  # Default to an empty list if deserialization fails
+
     return workshop
+
+
 # PUT endpoint to update a workshop by ID
 @router.put("/workshops/{workshop_id}", response_model=WorkshopResponse)
 async def update_workshop(workshop_id: int, updated_data: WorkshopUpdate, db: Session = Depends(get_db)):
@@ -82,13 +88,31 @@ async def update_workshop(workshop_id: int, updated_data: WorkshopUpdate, db: Se
     # Update the fields provided in the request body
     update_data = updated_data.dict(exclude_unset=True)  # Only include fields that are set
     for key, value in update_data.items():
+        if key == "instructors" and isinstance(value, list):  # Serialize instructors if it's a list
+            value = json.dumps(value)
+        if key == "students" and isinstance(value, list):  # Serialize students if it's a list
+            value = json.dumps(value)
         setattr(workshop, key, value)
     
     # Commit the changes to the database
     db.commit()
     db.refresh(workshop)
     
+    # Deserialize JSON fields for the response
+    if isinstance(workshop.instructors, str):  # If instructors is a JSON string
+        try:
+            workshop.instructors = json.loads(workshop.instructors)
+        except json.JSONDecodeError:
+            workshop.instructors = []  # Default to an empty list if deserialization fails
+
+    if isinstance(workshop.students, str):  # If students is a JSON string
+        try:
+            workshop.students = json.loads(workshop.students)
+        except json.JSONDecodeError:
+            workshop.students = []  # Default to an empty list if deserialization fails
+
     return workshop
+
 # DELETE endpoint to delete a workshop by ID
 @router.delete("/workshops/{workshop_id}")    
 async def delete_workshop(workshop_id: int, db: Session = Depends(get_db)):

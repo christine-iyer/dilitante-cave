@@ -3,7 +3,7 @@ from typing import List, Optional
 
 class StudentCreate(BaseModel):
     name: str   
-    reasons: List[str]  # Expecting a list of strings
+    reasons: Optional[List[str]] = None  # Expecting a list of strings
     picture: Optional[str] = None   
 
 class StudentResponse(BaseModel):
@@ -13,9 +13,9 @@ class StudentResponse(BaseModel):
     picture: Optional[str]  
 
 class StudentUpdate(BaseModel):
-    name: Optional[str]
-    reasons: Optional[list]
-    picture: Optional[str]      
+    name: Optional[str] = None
+    reasons: Optional[List[str]] = None  # Use List[str] for consistency
+    picture: Optional[str] = None
 
     class Config:
         from_attributes = True

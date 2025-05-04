@@ -3,7 +3,7 @@ from typing import List, Optional
 
 class WorkshopBase(BaseModel):
     subject: str
-    date: str  # Store the formatted date as a string
+    date: Optional[str] = None  # Store the formatted date as a string
     instructors: Optional[List[str]] = None  # JSON list
     students: Optional[List[str]] = None  # JSON list
     description: Optional[str] = None

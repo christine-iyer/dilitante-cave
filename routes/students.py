@@ -14,7 +14,7 @@ router = APIRouter()
 logging.basicConfig(level=logging.INFO)
 
 # POST endpoint to create a new student
-@router.post("/students/")
+@router.post("/students/", response_model=StudentResponse)
 async def create_student(student: StudentCreate, db: Session = Depends(get_db)):
     logging.info(f"Received student data: {student}")
     
@@ -26,56 +26,46 @@ async def create_student(student: StudentCreate, db: Session = Depends(get_db)):
     # Create a new student record
     new_student = Student(
         name=student.name,
-        reasons=json.dumps(student.reasons),  # Convert list to JSON string
+        reasons=json.dumps(student.reasons) if student.reasons else "[]",  # Serialize list to JSON string
         picture=student.picture,
     )
     db.add(new_student)
     db.commit()
     db.refresh(new_student)
     
-    return {"message": "Student created", "student": {"name": new_student.name, "reasons": json.loads(new_student.reasons)}}
+    # Deserialize reasons for the response
+    new_student.reasons = json.loads(new_student.reasons)
+    return new_student
 
 # GET endpoint to retrieve all students
 @router.get("/students/", response_model=List[StudentResponse])
 async def get_students(db: Session = Depends(get_db)):
-    # Query all students from the database
     students = db.query(Student).all()
-    
-    # Deserialize the `reasons` field for each student
     for student in students:
-        if isinstance(student.reasons, str):  # If reasons is a string
+        if isinstance(student.reasons, str):  # If reasons is a JSON string
             try:
-                student.reasons = json.loads(student.reasons)  # Try to parse as JSON
+                student.reasons = json.loads(student.reasons)  # Deserialize JSON string
             except json.JSONDecodeError:
-                student.reasons = student.reasons.split(", ")  # Fallback: split by comma
-        elif student.reasons is None:
-            student.reasons = []  # Default to an empty list if reasons is None
-    
-    # Return the list of students
+                student.reasons = []  # Default to an empty list if deserialization fails
     return students
 
-# GET endpoint to retrieve and modify a student by ID
+# GET endpoint to retrieve a single student by ID
 @router.get("/students/{student_id}", response_model=StudentResponse)
 async def get_student(student_id: int, db: Session = Depends(get_db)):
-    # Query the student by ID
     student = db.query(Student).filter(Student.id == student_id).first()
-    
-    # If the student does not exist, raise a 404 error
     if not student:
         raise HTTPException(status_code=404, detail="Student not found")
     
-    # Deserialize the `reasons` field
-    if isinstance(student.reasons, str):  # If reasons is a string
+    # Deserialize reasons for the response
+    if isinstance(student.reasons, str):  # If reasons is a JSON string
         try:
-            student.reasons = json.loads(student.reasons)  # Try to parse as JSON
+            student.reasons = json.loads(student.reasons)
         except json.JSONDecodeError:
-            student.reasons = student.reasons.split(", ")  # Fallback: split by comma
-    elif student.reasons is None:
-        student.reasons = []  # Default to an empty list if reasons is None
-    
+            student.reasons = []  # Default to an empty list if deserialization fails
     return student
+
 # PUT endpoint to update a student by ID
-@router.put("/students/{student_id}")
+@router.put("/students/{student_id}", response_model=StudentResponse)
 async def update_student(student_id: int, updated_data: StudentUpdate, db: Session = Depends(get_db)):
     # Query the student by ID
     student = db.query(Student).filter(Student.id == student_id).first()
@@ -85,7 +75,9 @@ async def update_student(student_id: int, updated_data: StudentUpdate, db: Sessi
         raise HTTPException(status_code=404, detail="Student not found")
     
     # Update the fields provided in the request body
-    for key, value in updated_data.items():
+    for key, value in updated_data.dict(exclude_unset=True).items():  # Use .dict() to convert to a dictionary
+        if key == "reasons" and isinstance(value, list):  # Serialize reasons if it's a list
+            value = json.dumps(value)
         if hasattr(student, key):  # Check if the field exists in the model
             setattr(student, key, value)
     
@@ -93,9 +85,15 @@ async def update_student(student_id: int, updated_data: StudentUpdate, db: Sessi
     db.commit()
     db.refresh(student)
     
-    return {"message": "Student updated successfully", "student": student}
+    # Deserialize reasons for the response
+    if isinstance(student.reasons, str):  # If reasons is a JSON string
+        try:
+            student.reasons = json.loads(student.reasons)
+        except json.JSONDecodeError:
+            student.reasons = []  # Default to an empty list if deserialization fails
+    return student
 # DELETE endpoint to delete a student by ID
-@router.delete("/students/{student_id}")    
+@router.delete("/students/{student_id}")
 async def delete_student(student_id: int, db: Session = Depends(get_db)):
     # Query the student by ID
     db_student = db.query(Student).filter(Student.id == student_id).first()
@@ -108,5 +106,4 @@ async def delete_student(student_id: int, db: Session = Depends(get_db)):
     db.delete(db_student)
     db.commit()
     
-    return {"message": "Student deleted"}
-# Note: The above code assumes that the database connection and models are set up correctly.
+    return {"message": "Student deleted successfully"}
