@@ -54,7 +54,7 @@ async def get_workshops(db: Session = Depends(get_db)):
 
 # GET endpoint to retrieve a single workshop by ID
 @router.get("/workshops/{workshop_id}", response_model=WorkshopResponse)
-async def get_workshop(workshop_id: int, db: Session = Depends(get_db)):
+async def get_workshop(workshop_id: str, db: Session = Depends(get_db)):
     workshop = db.query(Workshop).filter(Workshop.id == workshop_id).first()
     if not workshop:
         raise HTTPException(status_code=404, detail="Workshop not found")
