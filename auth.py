@@ -1,5 +1,7 @@
 from fastapi import FastAPI, HTTPException, DepOAuth2PasswordBearer
 from pydantic import BaseModel
+from fastapi.security import OAuth2PasswordBearer
+
 from passlib.context import CryptContext
 from jose import JWTError, jwt
 import pymongo
@@ -72,3 +74,12 @@ async def login(login_data: LoginData):
 
     return {"access_token": access_token, "token_type": "bearer"}
 
+def get_current_user(token: str = Depends(oauth2_scheme)):
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username = payload.get("sub")
+        if username is None:
+            raise HTTPException(status_code=401, detail="Invalid token")
+        return username
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid token")
