@@ -1,12 +1,12 @@
-from fastapi import FastAPI, HTTPException, DepOAuth2PasswordBearer
+from fastapi import FastAPI, HTTPException, Depends
 from pydantic import BaseModel
 from fastapi.security import OAuth2PasswordBearer
-
 from passlib.context import CryptContext
 from jose import JWTError, jwt
 import pymongo
 import datetime
 
+# Initialize FastAPI app
 app = FastAPI()
 
 # Database connection
@@ -20,19 +20,22 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 # JWT settings
 SECRET_KEY = "1c0d3b4r"
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30        
+ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
+# Pydantic models
 class User(BaseModel):
-     username: str
-     password: str
-     role: str
+    username: str
+    password: str
+    role: str
 
 class LoginData(BaseModel):
     username: str
     password: str
 
+# OAuth2 scheme for token authentication
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
+# Dependency to get the current user from the token
 def get_current_user(token: str = Depends(oauth2_scheme)):
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
@@ -41,18 +44,24 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
             raise HTTPException(status_code=401, detail="Invalid token")
         return username
     except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid token")    
+        raise HTTPException(status_code=401, detail="Invalid token")
 
-# Create User endpoint
+# Endpoint to register a new user
 @app.post("/register/")
 async def register(user: User):
+    # Check if the username already exists
+    existing_user = users_collection.find_one({"username": user.username})
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Username already exists")
+
+    # Hash the password and save the user
     hashed_password = pwd_context.hash(user.password)
     user_data = user.dict()
     user_data["password"] = hashed_password  # Replace plain-text password with hashed password
     users_collection.insert_one(user_data)
     return {"message": "User created"}
 
-# Login and get JWT
+# Endpoint to log in and get a JWT token
 @app.post("/login/")
 async def login(login_data: LoginData):
     # Find the user in the database
@@ -67,19 +76,14 @@ async def login(login_data: LoginData):
     # Generate a JWT token
     access_token_expires = datetime.timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = jwt.encode(
-        {"sub": user["username"], "exp": datetime.datetime.utcnow() + access_token_expires},
+        {"sub": user["username"], "exp": (datetime.datetime.utcnow() + access_token_expires).timestamp()},
         SECRET_KEY,
         algorithm=ALGORITHM,
     )
 
     return {"access_token": access_token, "token_type": "bearer"}
 
-def get_current_user(token: str = Depends(oauth2_scheme)):
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        username = payload.get("sub")
-        if username is None:
-            raise HTTPException(status_code=401, detail="Invalid token")
-        return username
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid token")
+# Example protected route
+@app.get("/protected/")
+async def protected_route(current_user: str = Depends(get_current_user)):
+    return {"message": f"Hello, {current_user}. This is a protected route."}
