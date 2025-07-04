@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from fastapi.security import OAuth2PasswordBearer
 from passlib.context import CryptContext
@@ -6,8 +6,8 @@ from jose import JWTError, jwt
 import pymongo
 import datetime
 
-# Initialize FastAPI app
-app = FastAPI()
+# Initialize APIRouter
+router = APIRouter()
 
 # Database connection
 client = pymongo.MongoClient("mongodb://localhost:27017/")
@@ -47,7 +47,7 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
         raise HTTPException(status_code=401, detail="Invalid token")
 
 # Endpoint to register a new user
-@app.post("/register/")
+@router.post("/register/")
 async def register(user: User):
     # Check if the username already exists
     existing_user = users_collection.find_one({"username": user.username})
@@ -62,7 +62,7 @@ async def register(user: User):
     return {"message": "User created"}
 
 # Endpoint to log in and get a JWT token
-@app.post("/login/")
+@router.post("/login/")
 async def login(login_data: LoginData):
     # Find the user in the database
     user = users_collection.find_one({"username": login_data.username})
@@ -84,6 +84,6 @@ async def login(login_data: LoginData):
     return {"access_token": access_token, "token_type": "bearer"}
 
 # Example protected route
-@app.get("/protected/")
+@router.get("/protected/")
 async def protected_route(current_user: str = Depends(get_current_user)):
     return {"message": f"Hello, {current_user}. This is a protected route."}

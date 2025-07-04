@@ -20,4 +20,4 @@ app.add_middleware(
 app.include_router(auth_router)
 app.include_router(students_router)
 app.include_router(instructors_router)
-app.include_router(workshops_router)    
+app.include_router(workshops_router)
