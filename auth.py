@@ -87,3 +87,22 @@ async def login(login_data: LoginData):
 @router.get("/protected/")
 async def protected_route(current_user: str = Depends(get_current_user)):
     return {"message": f"Hello, {current_user}. This is a protected route."}
+
+@router.get("/users/", response_model=List[User])
+async def get_all_users(db: Session = Depends(get_db)):
+    users = users_collection.find({}, {"password": 0})  # Exclude passwords
+    return list(users)
+
+@router.put("/users/me/")
+async def update_user_info(
+    updated_data: UserUpdate, current_user: str = Depends(get_current_user)
+):
+    user = users_collection.find_one({"username": current_user})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Update the user's information
+    users_collection.update_one(
+        {"username": current_user}, {"$set": updated_data.dict(exclude_unset=True)}
+    )
+    return {"message": "User information updated successfully"}
