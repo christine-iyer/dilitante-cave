@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from fastapi.security import OAuth2PasswordBearer
 from passlib.context import CryptContext
 from jose import JWTError, jwt
+from typing import List, Optional
 import pymongo
 import datetime
 
@@ -23,6 +24,9 @@ ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
 # Pydantic models
+class PublicUser(BaseModel):
+    username: str
+    role: str
 class User(BaseModel):
     username: str
     password: str
@@ -32,6 +36,10 @@ class LoginData(BaseModel):
     username: str
     password: str
 
+class UserUpdate(BaseModel):
+    username: Optional[str] = None
+    password: Optional[str] = None
+    role: Optional[str] = None
 # OAuth2 scheme for token authentication
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
@@ -88,8 +96,8 @@ async def login(login_data: LoginData):
 async def protected_route(current_user: str = Depends(get_current_user)):
     return {"message": f"Hello, {current_user}. This is a protected route."}
 
-@router.get("/users/", response_model=List[User])
-async def get_all_users(db: Session = Depends(get_db)):
+@router.get("/users/", response_model=List[PublicUser])
+async def get_all_users():
     users = users_collection.find({}, {"password": 0})  # Exclude passwords
     return list(users)
 
@@ -100,6 +108,10 @@ async def update_user_info(
     user = users_collection.find_one({"username": current_user})
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+
+    # Hash the password if it is being updated
+    if updated_data.password:
+        updated_data.password = pwd_context.hash(updated_data.password)
 
     # Update the user's information
     users_collection.update_one(
